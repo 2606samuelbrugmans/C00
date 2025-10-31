@@ -7,9 +7,9 @@ int main() {
 	Zombie* horde = zombieHorde(n, "Steves");
 
 
-	for (int i = 0; i < n; i++)
+	for ( *horde; horde; *horde++)
 	{
-		horde[i].announce();
+		(*horde).announce();
 
 	}
 	delete[] horde;
