@@ -13,8 +13,12 @@ int main()
     BaseAnimal.getBrain();
     BaseAnimal.makeSound();
     Dog* d1 = new Dog();
+    d1->getBrain()->setIdea(0, "Chase the cat");
+    ///deep copy test
+    
     Dog* d2 = new Dog(*d1);
-
+    std::cout << d2->getBrain()->getIdea(0);
+    
     d2->makeSound();
 
     for (int i = 0; i < size / 2; i++)
