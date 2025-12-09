@@ -2,7 +2,8 @@
 #include <cstddef>
 #include <stdexcept>
 #include <iostream>
-
+#include <cstdlib>
+#include <ctime>
 
 template <typename T>
 class Array {
@@ -13,7 +14,10 @@ class Array {
    public:
    	Array() : data(NULL), size(0) {}
 	Array(std::size_t n) : data(new T[n]()), size(n) {}
+	~Array() { delete[] data; }
+
 	Array(const Array& other) : data(new T[other.size]()), size(other.size)
+
 	{
 		for (std::size_t i = 0; i < size; ++i) {
 			data[i] = other.data[i];
@@ -46,7 +50,6 @@ class Array {
 		return data[index];
 	}
 	std::size_t Size() const { return size; }
-	~Array() { delete[] data; }
 };
 
 
