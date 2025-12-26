@@ -2,8 +2,14 @@
 
 int main(int argc, char **argv)
 {
-	if (argc == 1)
+	if (argc != 2)
 	{
-		std::cout << "enter at least one number" << std::endl;
+		std::cout << "enter a list of numbers surrounded by \" \" " << std::endl;
+		return 1;
+	}
+	else 
+	{
+		RPN rpn;
+		rpn.evaluate(argv[1]);
 	}
 }
