@@ -4,11 +4,9 @@ BitcoinExchange::BitcoinExchange() {}
 BitcoinExchange::~BitcoinExchange() {}
 std::string BitcoinExchange::trim(const std::string& date) const {
     const std::string whitespace = " \t";
-
     size_t start = date.find_first_not_of(whitespace);
     if (start == std::string::npos)
-        return ""; // string is all whitespace
-
+        return ""; 
     size_t end = date.find_last_not_of(whitespace);
     return date.substr(start, end - start + 1);
 }
@@ -88,7 +86,6 @@ void BitcoinExchange::loadData(const std::string& filename) {
 		double rate;
 		if (std::getline(ss, date, ',') && ss >> rate)
 		{
-			// avoid C++11 initializer_list usage for compatibility; use operator[]
 			data[date] = rate;
 		}
 	}
@@ -102,19 +99,14 @@ int BitcoinExchange::compareDates(const std::string& date1, const std::string& d
 double BitcoinExchange::getExchangeRate(const std::string& date) const {
 	if (data.empty())
 		throw DataNotFoundException("No exchange data loaded");
-
-	// Try exact match or nearest previous date.
 	std::map<std::string, double>::const_iterator it = data.lower_bound(date);
-
 	if (it != data.end() && it->first == date) {
 		return it->second;
 	}
-
 	if (it == data.begin()) {
 		// no earlier date available
 		throw DataNotFoundException("No suitable exchange rate found for the given date");
 	}
-
 	// take the previous entry (closest earlier date)
 	--it;
 	return it->second;

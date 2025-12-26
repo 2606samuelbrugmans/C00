@@ -6,10 +6,8 @@ int main(int argc, char** argv) {
 		std::cerr << "Usage: " << argv[0] << " <datafile>" << std::endl;
 		return 1;
 	}
-
 	try {
 		bitcoinExchange.loadData("data.csv");
-		std::cout << "loaded date" << std::endl;
 		std::string line;
 		std::ifstream file(argv[1]);
 		while (std::getline(file, line)) {
@@ -34,18 +32,15 @@ int main(int argc, char** argv) {
 					std::cerr << e.what() << std::endl;
 				}
 			}
-		}
-			
-
+		}		
 	} catch (const FileOpenException& e) {
-		// Handle file open error
+		std::cerr << e.what() << std::endl;
 	} catch (const InvalidDataFormatException& e) {
-		// Handle invalid data format error
+		std::cerr << e.what() << std::endl;
 	} catch (const DataNotFoundException& e) {
-		// Handle data not found error
+		std::cerr << e.what() << std::endl;
 	} catch (const std::exception& e) {
-		// Handle other exceptions
+		std::cerr << e.what() << std::endl;
 	}
-
 	return 0;
 }
