@@ -64,7 +64,7 @@ void PmergeMe::sortAndDisplayWithTiming(char **argv, int argc)
         std::cout << "[...] ";
     std::cout << std::endl;
 
-    std::cout << std::fixed << std::setprecision(5);
+    std::cout << std::fixed << std::setprecision(10);
     std::cout << "Time to process a range of " << vec.size()
               << " elements with std::vector : " << dur_vec << " us" << std::endl;
     std::cout << "Time to process a range of " << deq.size()
@@ -75,8 +75,10 @@ void PmergeMe::sortAndDisplayWithTiming(char **argv, int argc)
 // Compute Jacobsthal number J(k): J0=0, J1=1, Jk = Jk-1 + 2*Jk-2
 int PmergeMe::jacobsthal(int k) const
 {
-    if (k <= 0) return 0;
-    if (k == 1) return 1;
+    if (k <= 0)
+        return 0;
+    if (k == 1)
+        return 1;
     int a = 0;
     int b = 1;
     int c = 0;
@@ -91,14 +93,19 @@ int PmergeMe::jacobsthal(int k) const
 std::vector<int> PmergeMe::jacobOrderIndices(size_t m) const
 {
     std::vector<int> order;
-    if (m == 0) return order;
+    if (m == 0)
+        return order;
     std::vector<char> seen(m, 0);
-    for (int k = 1; ; ++k) {
+    for (int k = 1; ; ++k)
+    {
         int j = jacobsthal(k);
-        if (j <= 0) continue;
+        if (j <= 0) 
+            continue;
         int idx = j - 1; // convert to 0-based index
-        if (idx <= 0) continue; // skip 0 to avoid duplicating the first small
-        if ((size_t)idx >= m) break;
+        if (idx <= 0)
+            continue; // skip 0 to avoid duplicating the first small
+        if ((size_t)idx >= m)
+            break;
         if (!seen[idx]) {
             order.push_back(idx);
             seen[idx] = 1;
@@ -113,8 +120,10 @@ void PmergeMe::binaryInsertVector(std::vector<int>& sorted, int value) const
     size_t hi = sorted.size();
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        if (sorted[mid] < value) lo = mid + 1;
-        else hi = mid;
+        if (sorted[mid] < value)
+            lo = mid + 1;
+        else
+            hi = mid;
     }
     sorted.insert(sorted.begin() + lo, value);
 }
@@ -125,8 +134,10 @@ void PmergeMe::binaryInsertDeque(std::deque<int>& sorted, int value) const
     size_t hi = sorted.size();
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        if (sorted[mid] < value) lo = mid + 1;
-        else hi = mid;
+        if (sorted[mid] < value)
+            lo = mid + 1;
+        else
+            hi = mid;
     }
     sorted.insert(sorted.begin() + lo, value);
 }
@@ -135,7 +146,8 @@ void PmergeMe::fordJohnsonSortVector()
 {
     std::vector<int>& a = vec;
     size_t n = a.size();
-    if (n <= 1) return;
+    if (n <= 1)
+        return;
 
     size_t m = n / 2;
     std::vector<int> larges;
@@ -145,11 +157,18 @@ void PmergeMe::fordJohnsonSortVector()
     for (size_t i = 0; i + 1 < n; i += 2) {
         int x = a[i];
         int y = a[i+1];
-        if (x < y) { smalls.push_back(x); larges.push_back(y); }
-        else { smalls.push_back(y); larges.push_back(x); }
+        if (x < y) {
+            smalls.push_back(x);
+            larges.push_back(y);
+        }
+        else {
+            smalls.push_back(y);
+            larges.push_back(x);
+        }
     }
     int odd = -1;
-    if (n % 2 == 1) odd = a.back();
+    if (n % 2 == 1)
+        odd = a.back();
 
     // recursively sort larges
     if (!larges.empty()) {
@@ -160,20 +179,47 @@ void PmergeMe::fordJohnsonSortVector()
     }
 
     std::vector<int> sorted = larges;
-    if (!smalls.empty()) sorted.insert(sorted.begin(), smalls[0]);
-
-    std::vector<int> order = jacobOrderIndices(m);
+    
+    // Insert smalls following Ford-Johnson Jacobsthal order
+    // Always insert smalls[0] first
     std::vector<char> inserted(m, 0);
-    if (m > 0) inserted[0] = 1;
-    for (size_t idx = 0; idx < order.size(); ++idx) {
-        int pairIdx = order[idx];
-        if ((size_t)pairIdx < m && !inserted[pairIdx]) {
-            binaryInsertVector(sorted, smalls[pairIdx]);
-            inserted[pairIdx] = 1;
-        }
+    if (!smalls.empty()) {
+        binaryInsertVector(sorted, smalls[0]);
+        inserted[0] = 1;
     }
-    for (size_t i = 0; i < m; ++i) if (!inserted[i]) binaryInsertVector(sorted, smalls[i]);
-    if (odd != -1) binaryInsertVector(sorted, odd);
+    
+    // For each Jacobsthal number, insert elements
+    int prevJacob = 1;
+    for (int k = 2; ; ++k)
+    {
+        int jCurr = jacobsthal(k);
+        if (jCurr < 0 || (size_t)jCurr > m)
+            jCurr = m;
+        
+        // Insert from jCurr-1 down to prevJacob (descending order within gap)
+        int upperIdx = (jCurr < (int)m) ? jCurr - 1 : (int)m - 1;
+        for (int i = upperIdx; i >= prevJacob && i < (int)m; --i)
+        {
+            if ((size_t)i < m && !inserted[i]) {
+                binaryInsertVector(sorted, smalls[i]);
+                inserted[i] = 1;
+            }
+        }
+        
+        if ((size_t)jCurr >= m)
+            break;
+        prevJacob = jCurr;
+    }
+    
+    // Insert any remaining elements
+    for (size_t i = 0; i < m; ++i)
+    {
+        if (!inserted[i])
+            binaryInsertVector(sorted, smalls[i]);
+    }
+    
+    if (odd != -1)
+        binaryInsertVector(sorted, odd);
 
     for (size_t i = 0; i < n; ++i) a[i] = sorted[i];
 }
@@ -182,7 +228,8 @@ void PmergeMe::fordJohnsonSortDeque()
 {
     std::deque<int>& d = deq;
     size_t n = d.size();
-    if (n <= 1) return;
+    if (n <= 1)
+        return;
 
     size_t m = n / 2;
     std::deque<int> larges;
@@ -190,11 +237,18 @@ void PmergeMe::fordJohnsonSortDeque()
     for (size_t i = 0; i + 1 < n; i += 2) {
         int x = d[i];
         int y = d[i+1];
-        if (x < y) { smalls.push_back(x); larges.push_back(y); }
-        else { smalls.push_back(y); larges.push_back(x); }
+        if (x < y) {
+            smalls.push_back(x);
+            larges.push_back(y);
+        }
+        else {
+            smalls.push_back(y);
+            larges.push_back(x);
+        }
     }
     int odd = -1;
-    if (n % 2 == 1) odd = d.back();
+    if (n % 2 == 1)
+        odd = d.back();
 
     // recursively sort larges
     if (!larges.empty()) {
@@ -205,20 +259,50 @@ void PmergeMe::fordJohnsonSortDeque()
     }
 
     std::deque<int> sorted = larges;
-    if (!smalls.empty()) sorted.push_front(smalls[0]);
-
-    std::vector<int> order = jacobOrderIndices(m);
+    
+    // Insert smalls following Ford-Johnson Jacobsthal order
+    // Always insert smalls[0] first
     std::vector<char> inserted(m, 0);
-    if (m > 0) inserted[0] = 1;
-    for (size_t idx = 0; idx < order.size(); ++idx) {
-        int pairIdx = order[idx];
-        if ((size_t)pairIdx < m && !inserted[pairIdx]) {
-            binaryInsertDeque(sorted, smalls[pairIdx]);
-            inserted[pairIdx] = 1;
+    if (!smalls.empty()) {
+        binaryInsertDeque(sorted, smalls[0]);
+        inserted[0] = 1;
+    }
+    
+    // For each Jacobsthal number, insert elements
+    int prevJacob = 1;
+    for (int k = 2; ; ++k)
+    {
+        int jCurr = jacobsthal(k);
+        if (jCurr < 0 || (size_t)jCurr > m)
+            jCurr = m;
+        
+        // Insert from jCurr-1 down to prevJacob (descending order within gap)
+        int upperIdx = (jCurr < (int)m) ? jCurr - 1 : (int)m - 1;
+        for (int i = upperIdx; i >= prevJacob && i < (int)m; --i)
+        {
+            if ((size_t)i < m && !inserted[i]) {
+                binaryInsertDeque(sorted, smalls[i]);
+                inserted[i] = 1;
+            }
+        }
+        
+        if ((size_t)jCurr >= m)
+            break;
+        prevJacob = jCurr;
+    }
+    
+    // Insert any remaining elements
+    for (size_t i = 0; i < m; ++i)
+    {
+        if (!inserted[i]) {
+            binaryInsertDeque(sorted, smalls[i]);
+            inserted[i] = 1;
         }
     }
-    for (size_t i = 0; i < m; ++i) if (!inserted[i]) binaryInsertDeque(sorted, smalls[i]);
-    if (odd != -1) binaryInsertDeque(sorted, odd);
-
-    for (size_t i = 0; i < n; ++i) d[i] = sorted[i];
+    
+    if (odd != -1)
+        binaryInsertDeque(sorted, odd);
+    
+    for (size_t i = 0; i < n; ++i)
+        d[i] = sorted[i];
 }
