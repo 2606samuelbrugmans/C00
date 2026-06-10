@@ -32,14 +32,17 @@ void PmergeMe::sortAndDisplayWithTiming(char **argv, int argc)
     {
         char *endptr = NULL;
         long val = std::strtol(argv[i], &endptr, 10);
-        if (*endptr != '\0')
-            throw std::runtime_error("Error");
+        if (*endptr != '\0')        
+            throw std::runtime_error("Error : invalid number '" + std::string(argv[i]) + "'");
         if (val < 0)
-            throw std::runtime_error("Error");
+            throw std::runtime_error("Error : number '" + std::string(argv[i]) + "' is negative");
         int num = static_cast<int>(val);
         vec.push_back(num);
         deq.push_back(num);
-        std::cout << num << " ";
+        if (i < 5) // only print the first few numbers to avoid clutter
+            std::cout << num << " ";
+        if (i == 5)
+            std::cout << "[...] ";
     }
 
     struct timeval start_vec, end_vec;
@@ -55,8 +58,10 @@ void PmergeMe::sortAndDisplayWithTiming(char **argv, int argc)
     double dur_deq = (end_deq.tv_sec - start_deq.tv_sec) * 1e6 + (end_deq.tv_usec - start_deq.tv_usec);
 
     std::cout << "\nAfter: ";
-    for (size_t i = 0; i < vec.size(); ++i)
+    for (size_t i = 0; i < vec.size() && i < 4; ++i)
         std::cout << vec[i] << " ";
+    if (vec.size() > 4)
+        std::cout << "[...] ";
     std::cout << std::endl;
 
     std::cout << std::fixed << std::setprecision(5);

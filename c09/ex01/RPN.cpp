@@ -5,7 +5,11 @@ RPN::RPN()
 
 RPN::~RPN()
 {};
-double RPN::applyOperator(std::stack<int> reserve, int stackEmpty, char op)
+bool RPN::isOperator(char c)
+{
+	return (c == '+' || c == '-' || c == '*' || c == '/');
+}
+void RPN::applyOperator(std::stack<int> &reserve, int stackEmpty, char op)
 {
 	int right;
 	int left;
@@ -34,10 +38,8 @@ double RPN::applyOperator(std::stack<int> reserve, int stackEmpty, char op)
 	default:
 		throw (errorRuntime("Error: invalid operator"));
 	}
-	return reserve.top();
-
 }
-double RPN::evaluate(const std::string& expression)
+void RPN::evaluate(const std::string& expression)
 {
 	int i = 0;
 	int len = expression.length();
@@ -49,7 +51,8 @@ double RPN::evaluate(const std::string& expression)
 		else if (isOperator(expression[i]))
 		{
 
-			reserve.push(applyOperator(reserve,has_number, expression[i]));
+			applyOperator(reserve,has_number, expression[i]);
+			has_number--;
 		}
 		else if ( isdigit(expression[i]))
 		{
@@ -63,7 +66,5 @@ double RPN::evaluate(const std::string& expression)
 		}
 		i++;
 	}
+	std::cout << "Result: " << reserve.top() << std::endl;
 }
-errorRuntime::errorRuntime(const std::string& message)
-	: std::runtime_error(message)
-{}

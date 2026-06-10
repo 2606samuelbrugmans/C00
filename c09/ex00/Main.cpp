@@ -20,14 +20,14 @@ int main(int argc, char** argv) {
 				continue;
 			}
 			if (std::getline(ss, date, '|') && (ss >> value)) {
-				std::cout << "Processing date: " << date << " with value: " << value << std::endl;
+				//std::cout << "Processing date: " << date << " with value: " << value << std::endl;
 				if (bitcoinExchange.formatCheck(date, value) == 0) {
 					continue;
 				}
 				try {
-					std::cout << "Getting exchange rate for date: " << date << std::endl;
+					//std::cout << "Getting exchange rate for date: " << date << std::endl;
 					double rate = bitcoinExchange.getExchangeRate(date);
-					std::cout << date << " => " << rate <<"= " << value * rate << std::endl;
+					std::cout << date << " => " << rate <<" = " << value * rate << std::endl;
 				} catch (const DataNotFoundException& e) {
 					std::cerr << e.what() << std::endl;
 				}

@@ -4,15 +4,16 @@
 #include <sstream>
 #include <cctype>
 #include <iostream>
+#include <stdexcept>
 
 class RPN {
 public:
 	RPN();
 	~RPN();
-	double evaluate(const std::string& expression);
+	void evaluate(const std::string& expression);
 private:
 	bool isOperator(char c);
-	double applyOperator(std::stack<int> reserve, int stackEmpty, char op);
+	void applyOperator(std::stack<int> &reserve, int stackEmpty, char op);
 	std::stack<int> reserve;
 };
 class errorRuntime : public std::runtime_error {
