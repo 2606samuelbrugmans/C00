@@ -1,31 +1,44 @@
-#pragma once
-#include <vector>
-#include <iostream>
-#include <algorithm>
-#include <deque>
-#include <stdexcept>
+#ifndef PMERGEME_HPP
+# define PMERGEME_HPP
+
+# include <iostream>
+# include <vector>
+# include <deque>
+# include <map>
+# include <set>
+# include <stdexcept>
+# include <iomanip>
+# include <cstdlib>
+# include <sys/time.h>
 
 class PmergeMe
 {
-public:
-	PmergeMe();	
-	~PmergeMe();
+    public:
+        PmergeMe();
+        ~PmergeMe();
 
-	void sortAndDisplay(char **argv, int argc);
-	void sortAndDisplayWithTiming(char **argv, int argc);
+        void sortAndDisplay(char **argv, int argc);
+        void sortAndDisplayWithTiming(char **argv, int argc);
 
-private:
-	std::vector<int> vec;
-	std::deque<int> deq;
+    private:
+        std::vector<int> vec;
+        std::deque<int>  deq;
 
-	// Ford-Johnson helpers (moved from free functions)
-	int jacobsthal(int k) const;
-	std::vector<int> jacobOrderIndices(size_t m) const;
-	void binaryInsertVector(std::vector<int>& sorted, int value) const;
-	void binaryInsertDeque(std::deque<int>& sorted, int value) const;
+        // Jacobsthal helpers
+        int                  jacobsthal(int k) const;
+        std::vector<size_t>  buildInsertionOrder(size_t m) const;
 
-	void fordJohnsonSortVector();
-	void fordJohnsonSortDeque();
+        // Binary insertion
+        void    binaryInsertVector(std::vector<int>& sorted, int value, size_t hiLimit) const;
+        void    binaryInsertDeque (std::deque<int>&  sorted, int value, size_t hiLimit) const;
+
+        // Upper-bound helpers
+        size_t  winnerBoundVector(const std::vector<int>& sorted, int winner) const;
+        size_t  winnerBoundDeque (const std::deque<int>&  sorted, int winner) const;
+
+        // Core sorts
+        void    fordJohnsonSortVector();
+        void    fordJohnsonSortDeque();
 };
 
-// No custom runtime error type needed; use std::runtime_error directly when required.
+#endif
