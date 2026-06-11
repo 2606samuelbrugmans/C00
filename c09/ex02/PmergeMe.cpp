@@ -5,9 +5,6 @@ PmergeMe::PmergeMe() { }
 PmergeMe::~PmergeMe() { }
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Public interface
-// ─────────────────────────────────────────────────────────────────────────────
 
 void PmergeMe::sortAndDisplay(char **argv, int argc)
 {
@@ -88,11 +85,6 @@ void PmergeMe::sortAndDisplayWithTiming(char **argv, int argc)
 //
 //  J(0) = 0,  J(1) = 1,  J(k) = J(k-1) + 2 * J(k-2)
 //  Sequence: 0, 1, 1, 3, 5, 11, 21, 43, 85, 171, …
-//
-//  Ford-Johnson uses these numbers to decide which pending (small) elements
-//  to insert first.  Inserting in this order keeps the worst-case binary
-//  search length minimal — each group of size J(k)-J(k-1) can be inserted
-//  into a chain whose length is always a power-of-two minus 1.
 // ─────────────────────────────────────────────────────────────────────────────
 
 int PmergeMe::jacobsthal(int k) const
@@ -115,40 +107,33 @@ int PmergeMe::jacobsthal(int k) const
 // Build the insertion order for `m` pending elements (0-based indices).
 //
 // Ford-Johnson groups:
-//   Group 1 : index 0          (b1  — always inserted first)
-//   Group 2 : indices [1, 2]   (J(2)-1 down to J(1))
+//   Group 1 : index 0          (b1 — always inserted first)
 //   Group k : indices [J(k-1), J(k)-1]  inserted in DESCENDING order
 //
-// Inserting the group in descending order within each group is critical:
-// it ensures the upper bound for binary search never grows between
-// consecutive insertions inside the same group.
+// Descending order within each group keeps the binary-search upper bound
+// from growing between consecutive insertions in the same group.
 std::vector<size_t> PmergeMe::buildInsertionOrder(size_t m) const
 {
     std::vector<size_t> order;
     if (m == 0)
         return order;
 
-    // b1 (index 0) is always first
     order.push_back(0);
 
-    // Walk through Jacobsthal groups k = 2, 3, 4, …
-    // until the group floor exceeds the available indices.
     for (int k = 2; ; ++k)
     {
         int jCurr = jacobsthal(k);
         int jPrev = jacobsthal(k - 1);
 
-        // Clamp to actual number of pending elements (0-based ceiling = m-1)
         int hi = static_cast<int>(m) - 1;
         if (jCurr - 1 < hi)
             hi = jCurr - 1;
 
-        int lo = jPrev; // 0-based inclusive floor for this group
+        int lo = jPrev;
 
         if (lo > static_cast<int>(m) - 1)
             break;
 
-        // Insert this group in descending index order
         for (int i = hi; i >= lo; --i)
             order.push_back(static_cast<size_t>(i));
 
@@ -162,11 +147,6 @@ std::vector<size_t> PmergeMe::buildInsertionOrder(size_t m) const
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Binary insertion helpers
-//
-//  `hiLimit` is the exclusive upper bound for the search range.
-//  Passing the winner's position + 1 as hiLimit is the key Ford-Johnson
-//  optimisation: we already know the small is ≤ its paired large, so there
-//  is no point comparing against anything beyond the large's position.
 // ─────────────────────────────────────────────────────────────────────────────
 
 void PmergeMe::binaryInsertVector(std::vector<int>& sorted,
@@ -203,9 +183,6 @@ void PmergeMe::binaryInsertDeque(std::deque<int>& sorted,
     sorted.insert(sorted.begin() + static_cast<std::ptrdiff_t>(lo), value);
 }
 
-// Return position_of(winner) + 1  as the exclusive upper bound.
-// Because winners were sorted recursively and are unique, lower_bound
-// lands on the winner exactly.
 size_t PmergeMe::winnerBoundVector(const std::vector<int>& sorted, int winner) const
 {
     size_t lo = 0;
@@ -218,7 +195,7 @@ size_t PmergeMe::winnerBoundVector(const std::vector<int>& sorted, int winner) c
         else
             hi = mid;
     }
-    return lo + 1; // +1 so the winner itself is included as a valid ceiling
+    return lo + 1;
 }
 
 size_t PmergeMe::winnerBoundDeque(const std::deque<int>& sorted, int winner) const
@@ -238,6 +215,122 @@ size_t PmergeMe::winnerBoundDeque(const std::deque<int>& sorted, int winner) con
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Pair-sorting helpers
+//
+//  Instead of keeping separate large/small vectors and using a map to
+//  reconnect them after recursion, we store each (large, small) duo as a
+//  std::pair<int,int> and sort the pair-vector by .first.
+//  The small travels with its large at every recursion level, so no lookup
+//  is ever needed.
+//
+//  sortPairsVector / sortPairsDeque both use the same logic; the only
+//  difference is which container type they are called from (kept separate
+//  to mirror the vector/deque split of the main sort functions).
+// ─────────────────────────────────────────────────────────────────────────────
+
+typedef std::vector<std::pair<int, int> > PairVec;
+
+void PmergeMe::sortPairsVector(PairVec& pairs)
+{
+    size_t n = pairs.size();
+    if (n <= 1)
+        return;
+
+    // Build (winner-pair, loser-pair) from each consecutive duo.
+    // winner = the pair whose .first is larger.
+    PairVec winners;
+    PairVec losers;
+    winners.reserve(n / 2);
+    losers.reserve(n / 2);
+
+    for (size_t i = 0; i + 1 < n; i += 2)
+    {
+        if (pairs[i].first >= pairs[i + 1].first)
+        {
+            winners.push_back(pairs[i]);
+            losers.push_back(pairs[i + 1]);
+        }
+        else
+        {
+            winners.push_back(pairs[i + 1]);
+            losers.push_back(pairs[i]);
+        }
+    }
+    if (n % 2 == 1)
+        losers.push_back(pairs.back());
+
+    sortPairsVector(winners);
+
+    // Merge losers into winners with binary insertion on .first
+    for (size_t i = 0; i < losers.size(); ++i)
+    {
+        int    val = losers[i].first;
+        size_t lo  = 0;
+        size_t hi  = winners.size();
+        while (lo < hi)
+        {
+            size_t mid = lo + (hi - lo) / 2;
+            if (winners[mid].first < val)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+        winners.insert(winners.begin() + static_cast<std::ptrdiff_t>(lo), losers[i]);
+    }
+
+    pairs = winners;
+}
+
+void PmergeMe::sortPairsDeque(PairVec& pairs)
+{
+    size_t n = pairs.size();
+    if (n <= 1)
+        return;
+
+    PairVec winners;
+    PairVec losers;
+    winners.reserve(n / 2);
+    losers.reserve(n / 2);
+
+    for (size_t i = 0; i + 1 < n; i += 2)
+    {
+        if (pairs[i].first >= pairs[i + 1].first)
+        {
+            winners.push_back(pairs[i]);
+            losers.push_back(pairs[i + 1]);
+        }
+        else
+        {
+            winners.push_back(pairs[i + 1]);
+            losers.push_back(pairs[i]);
+        }
+    }
+    if (n % 2 == 1)
+        losers.push_back(pairs.back());
+
+    sortPairsDeque(winners);
+
+    for (size_t i = 0; i < losers.size(); ++i)
+    {
+        int    val = losers[i].first;
+        size_t lo  = 0;
+        size_t hi  = winners.size();
+        while (lo < hi)
+        {
+            size_t mid = lo + (hi - lo) / 2;
+            if (winners[mid].first < val)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+        winners.insert(winners.begin() + static_cast<std::ptrdiff_t>(lo), losers[i]);
+    }
+
+    pairs = winners;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Ford-Johnson (merge-insertion) sort — std::vector
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -248,74 +341,49 @@ void PmergeMe::fordJohnsonSortVector()
     if (n <= 1)
         return;
 
-    // ── Step 1: pair elements, sort each pair so large > small ───────────────
     size_t m = n / 2;
-    std::vector<int> larges;
-    std::vector<int> smalls;
-    larges.reserve(m);
-    smalls.reserve(m);
+
+    // ── Step 1: build (large, small) pairs ───────────────────────────────────
+    PairVec pairs;
+    pairs.reserve(m);
 
     for (size_t i = 0; i + 1 < n; i += 2)
     {
         int x = a[i];
         int y = a[i + 1];
-        if (x < y)
-        {
-            smalls.push_back(x);
-            larges.push_back(y);
-        }
+        if (x >= y)
+            pairs.push_back(std::make_pair(x, y));
         else
-        {
-            smalls.push_back(y);
-            larges.push_back(x);
-        }
+            pairs.push_back(std::make_pair(y, x));
     }
 
-    // Stash the leftover element when n is odd.
-    // We use a bool flag instead of a sentinel so any integer value is valid.
-    bool  hasOdd = (n % 2 == 1);
-    int   oddVal = hasOdd ? a.back() : 0;
+    bool hasOdd = (n % 2 == 1);
+    int  oddVal = 0;
+    if (hasOdd)
+        oddVal = a.back();
 
-    // ── Step 2: recursively sort the larges (winners) ─────────────────────
-    // We must remember which small was paired with which large BEFORE the
-    // recursive sort changes their order.  We key the mapping by value;
-    // this is safe because all larges are distinct (strict > comparison).
-    std::vector<int> largesBefore = larges;
+    // ── Step 2: sort pairs recursively by their large (.first) ───────────────
+    sortPairsVector(pairs);
 
-    if (!larges.empty())
-    {
-        PmergeMe tmp;
-        tmp.vec = larges;
-        tmp.fordJohnsonSortVector();
-        larges = tmp.vec;
-    }
-
-    // Rebuild smalls in the same order as the now-sorted larges,
-    // so smalls[i] is always the partner of larges[i].
-    std::map<int, int> pairMap;
+    // ── Step 3: seed the sorted chain with all larges ────────────────────────
+    std::vector<int> sorted;
+    sorted.reserve(n);
     for (size_t i = 0; i < m; ++i)
-        pairMap[largesBefore[i]] = smalls[i];
+        sorted.push_back(pairs[i].first);
 
-    std::vector<int> pendingSmalls(m);
-    for (size_t i = 0; i < m; ++i)
-        pendingSmalls[i] = pairMap[larges[i]];
-
-    // ── Step 3: start the sorted chain with all larges ────────────────────
-    std::vector<int> sorted = larges;
-
-    // ── Step 4: insert pending smalls in Ford-Johnson (Jacobsthal) order ──
+    // ── Step 4: insert smalls in Jacobsthal order ────────────────────────────
     std::vector<size_t> order = buildInsertionOrder(m);
 
     for (size_t k = 0; k < order.size(); ++k)
     {
-        size_t idx    = order[k];
-        int    small  = pendingSmalls[idx];
-        int    large  = larges[idx];
-        size_t bound  = winnerBoundVector(sorted, large);
+        size_t idx   = order[k];
+        int    small = pairs[idx].second;
+        int    large = pairs[idx].first;
+        size_t bound = winnerBoundVector(sorted, large);
         binaryInsertVector(sorted, small, bound);
     }
 
-    // ── Step 5: insert the odd element (if any) into the full sorted chain ─
+    // ── Step 5: insert the odd element if present ────────────────────────────
     if (hasOdd)
         binaryInsertVector(sorted, oddVal, sorted.size());
 
@@ -326,7 +394,6 @@ void PmergeMe::fordJohnsonSortVector()
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Ford-Johnson (merge-insertion) sort — std::deque
-//  (mirrors the vector version exactly)
 // ─────────────────────────────────────────────────────────────────────────────
 
 void PmergeMe::fordJohnsonSortDeque()
@@ -337,55 +404,38 @@ void PmergeMe::fordJohnsonSortDeque()
         return;
 
     size_t m = n / 2;
-    std::deque<int> larges;
-    std::deque<int> smalls;
+
+    PairVec pairs;
+    pairs.reserve(m);
 
     for (size_t i = 0; i + 1 < n; i += 2)
     {
         int x = d[i];
         int y = d[i + 1];
-        if (x < y)
-        {
-            smalls.push_back(x);
-            larges.push_back(y);
-        }
+        if (x >= y)
+            pairs.push_back(std::make_pair(x, y));
         else
-        {
-            smalls.push_back(y);
-            larges.push_back(x);
-        }
+            pairs.push_back(std::make_pair(y, x));
     }
 
     bool hasOdd = (n % 2 == 1);
-    int  oddVal = hasOdd ? d.back() : 0;
+    int  oddVal = 0;
+    if (hasOdd)
+        oddVal = d.back();
 
-    std::deque<int> largesBefore = larges;
+    sortPairsDeque(pairs);
 
-    if (!larges.empty())
-    {
-        PmergeMe tmp;
-        tmp.deq = larges;
-        tmp.fordJohnsonSortDeque();
-        larges = tmp.deq;
-    }
-
-    std::map<int, int> pairMap;
+    std::deque<int> sorted;
     for (size_t i = 0; i < m; ++i)
-        pairMap[largesBefore[i]] = smalls[i];
-
-    std::deque<int> pendingSmalls(m);
-    for (size_t i = 0; i < m; ++i)
-        pendingSmalls[i] = pairMap[larges[i]];
-
-    std::deque<int> sorted = larges;
+        sorted.push_back(pairs[i].first);
 
     std::vector<size_t> order = buildInsertionOrder(m);
 
     for (size_t k = 0; k < order.size(); ++k)
     {
         size_t idx   = order[k];
-        int    small = pendingSmalls[idx];
-        int    large = larges[idx];
+        int    small = pairs[idx].second;
+        int    large = pairs[idx].first;
         size_t bound = winnerBoundDeque(sorted, large);
         binaryInsertDeque(sorted, small, bound);
     }
